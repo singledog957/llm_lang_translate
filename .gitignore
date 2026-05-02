@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.class
+.venv/
+venv/
+
+# Data & Models
+1_data/
+*.pth
+*.onnx
+*.h5
+
+*.log
+init.sh
+
+# OS
+.DS_Store
+
+Data_Crawl
