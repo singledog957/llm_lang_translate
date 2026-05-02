@@ -190,32 +190,53 @@ class Translator:
 
         try:
             data = json.loads(clean_content)
-            # 支持 {"results": [...]} 格式或直接数组 [...] 格式
-            results_list = []
+            # 期待格式: {"results": {"1": "...", "2": "..."}}
+            results_dict = {}
             if isinstance(data, dict) and "results" in data:
-                results_list = data["results"]
-            elif isinstance(data, list):
-                results_list = data
+                results_dict = data["results"]
             
-            if results_list and len(results_list) == expected_count:
-                return [str(item).strip() for item in results_list]
-            elif results_list:
-                logger.warning("JSON parsed but length mismatch: got %d, expected %d", len(results_list), expected_count)
+            # 兼容如果模型依然返回了数组
+            if isinstance(results_dict, list):
+                if len(results_dict) == expected_count:
+                    return [str(item).strip() for item in results_dict]
+                else:
+                    logger.warning("JSON parsed but array length mismatch: got %d, expected %d", len(results_dict), expected_count)
+            elif isinstance(results_dict, dict):
+                # 从 dict 中按 1..N 提取
+                extracted = []
+                for i in range(1, expected_count + 1):
+                    key = str(i)
+                    if key in results_dict:
+                        extracted.append(str(results_dict[key]).strip())
+                
+                if len(extracted) == expected_count:
+                    return extracted
+                else:
+                    logger.warning("JSON parsed but dict missing keys: found %d/%d", len(extracted), expected_count)
+
         except json.JSONDecodeError as e:
             logger.warning("JSONDecodeError: %s. Attempting heuristic extraction...", str(e))
             
-            # 启发式提取：尝试从不完整的 JSON 中提取已有的字符串
-            # 寻找 "results": [ 之后的内容
-            results_match = re.search(r'"results"\s*:\s*\[(.*)', clean_content, re.DOTALL)
+            # 启发式提取：针对 Dict 结构 {"1": "...", "2": "..."}
+            results_match = re.search(r'"results"\s*:\s*\{(.*)', clean_content, re.DOTALL)
             if results_match:
-                array_content = results_match.group(1)
-                # 提取数组中的所有带引号的完整字符串
-                results_list = re.findall(r'"([^"\\]*(?:\\.[^"\\]*)*)"', array_content)
-                if len(results_list) == expected_count:
-                    logger.info("Heuristic extraction succeeded: found %d results via regex.", len(results_list))
-                    return [s.strip() for s in results_list]
-                elif len(results_list) > 0:
-                    logger.warning("Heuristic extraction found partial results: %d/%d", len(results_list), expected_count)
+                dict_content = results_match.group(1)
+                # 提取形如 "数字": "内容"
+                pattern = r'"(\d+)"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"'
+                matches = re.findall(pattern, dict_content)
+                
+                extracted_dict = {m[0]: m[1] for m in matches}
+                extracted = []
+                for i in range(1, expected_count + 1):
+                    key = str(i)
+                    if key in extracted_dict:
+                        extracted.append(extracted_dict[key].strip())
+                        
+                if len(extracted) == expected_count:
+                    logger.info("Heuristic extraction succeeded: found %d results via regex.", len(extracted))
+                    return extracted
+                elif len(extracted) > 0:
+                    logger.warning("Heuristic extraction found partial results: %d/%d", len(extracted), expected_count)
 
         # 2. 尝试正则表达式解析 (回退策略)
         logger.warning("JSON parse failed or length mismatch, trying regex fallback...")

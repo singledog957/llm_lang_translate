@@ -51,6 +51,7 @@ class APIClient:
         base_url: str,
         api_key: str,
         model: str,
+        api_mode: str = "completion",
         temperature: float = 0.0,
         max_tokens: int = 4096,
         retry_attempts: int = 3,
@@ -59,6 +60,7 @@ class APIClient:
         timeout: float = 60.0,
     ):
         self.model = model
+        self.api_mode = api_mode
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.retry_attempts = retry_attempts
@@ -102,37 +104,94 @@ class APIClient:
             try:
                 start = time.time()
                 
-                # 构建请求参数
-                kwargs = {
-                    "model": self.model,
-                    "messages": msg_dicts,
-                    "temperature": temp,
-                    "max_tokens": tokens,
-                }
-                if response_format:
-                    kwargs["response_format"] = response_format
-
-                response = self._client.chat.completions.create(**kwargs)
-                elapsed_ms = (time.time() - start) * 1000
-
-                msg_obj = response.choices[0].message
-                raw_content = getattr(msg_obj, "content", None)
-                finish_reason = response.choices[0].finish_reason
-                
-                # 特殊处理：某些推理模型（如 DeepSeek-R1）可能将内容放在 reasoning_content 中
-                reasoning_content = getattr(msg_obj, "reasoning_content", None)
-                
-                if (raw_content is None or raw_content.strip() == "") and reasoning_content:
-                    logger.info("Content is empty but found reasoning_content. Using reasoning_content as fallback.")
-                    raw_content = reasoning_content
-
-                usage = {}
-                if response.usage:
-                    usage = {
-                        "prompt_tokens": response.usage.prompt_tokens,
-                        "completion_tokens": response.usage.completion_tokens,
-                        "total_tokens": response.usage.total_tokens,
+                if self.api_mode == "response":
+                    kwargs = {
+                        "model": self.model,
+                        "temperature": temp,
+                        "max_output_tokens": tokens,
                     }
+                    system_msgs = [m["content"] for m in msg_dicts if m["role"] == "system"]
+                    if system_msgs:
+                        kwargs["instructions"] = "\n".join(system_msgs)
+                    input_msgs = [m for m in msg_dicts if m["role"] != "system"]
+                    if input_msgs:
+                        kwargs["input"] = input_msgs
+                    if response_format:
+                        kwargs["extra_body"] = {"response_format": response_format}
+
+                    response = self._client.responses.create(**kwargs)
+                    elapsed_ms = (time.time() - start) * 1000
+
+                    raw_content = getattr(response, "output_text", None)
+                    if raw_content is None:
+                        # Fallback for various API gateway wrapper structures
+                        output_list = getattr(response, "output", None)
+                        if not output_list and isinstance(response, dict):
+                            output_list = response.get("output", [])
+                            
+                        if isinstance(output_list, list) and len(output_list) > 0:
+                            first_output = output_list[0]
+                            content_val = getattr(first_output, "content", None)
+                            if content_val is None and isinstance(first_output, dict):
+                                content_val = first_output.get("content")
+                                
+                            if isinstance(content_val, str):
+                                raw_content = content_val
+                            elif isinstance(content_val, list) and len(content_val) > 0:
+                                first_item = content_val[0]
+                                if isinstance(first_item, str):
+                                    raw_content = first_item
+                                elif isinstance(first_item, dict):
+                                    raw_content = first_item.get("text")
+                                else:
+                                    raw_content = getattr(first_item, "text", None)
+                                    
+                        if raw_content is None and hasattr(response, "choices"):
+                            raw_content = response.choices[0].message.content
+                        
+                    finish_reason = getattr(response, "status", "") # Fallback finish reason for responses
+                    
+                    usage = {}
+                    if hasattr(response, "usage") and response.usage:
+                        prompt_tokens = getattr(response.usage, "input_tokens", getattr(response.usage, "prompt_tokens", 0))
+                        completion_tokens = getattr(response.usage, "output_tokens", getattr(response.usage, "completion_tokens", 0))
+                        usage = {
+                            "prompt_tokens": prompt_tokens,
+                            "completion_tokens": completion_tokens,
+                            "total_tokens": getattr(response.usage, "total_tokens", 0),
+                        }
+                else:
+                    # 构建请求参数
+                    kwargs = {
+                        "model": self.model,
+                        "messages": msg_dicts,
+                        "temperature": temp,
+                        "max_tokens": tokens,
+                    }
+                    if response_format:
+                        kwargs["response_format"] = response_format
+
+                    response = self._client.chat.completions.create(**kwargs)
+                    elapsed_ms = (time.time() - start) * 1000
+
+                    msg_obj = response.choices[0].message
+                    raw_content = getattr(msg_obj, "content", None)
+                    finish_reason = response.choices[0].finish_reason
+                    
+                    # 特殊处理：某些推理模型（如 DeepSeek-R1）可能将内容放在 reasoning_content 中
+                    reasoning_content = getattr(msg_obj, "reasoning_content", None)
+                    
+                    if (raw_content is None or raw_content.strip() == "") and reasoning_content:
+                        logger.info("Content is empty but found reasoning_content. Using reasoning_content as fallback.")
+                        raw_content = reasoning_content
+
+                    usage = {}
+                    if response.usage:
+                        usage = {
+                            "prompt_tokens": response.usage.prompt_tokens,
+                            "completion_tokens": response.usage.completion_tokens,
+                            "total_tokens": response.usage.total_tokens,
+                        }
 
                 if raw_content is None or raw_content.strip() == "":
                     # 打印完整响应以供 Debug
@@ -163,7 +222,7 @@ class APIClient:
                 return APIResponse(
                     content=content,
                     usage=usage,
-                    model=response.model or self.model,
+                    model=getattr(response, "model", self.model) or self.model,
                     latency_ms=elapsed_ms,
                     finish_reason=finish_reason or "",
                 )

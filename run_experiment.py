@@ -211,10 +211,12 @@ def main():
         log.info("========== Running with model: %s ==========", model_name)
 
         # 创建 API 客户端
+        api_mode = os.environ.get("API_MODE", "completion").lower()
         api_client = APIClient(
             base_url=model_conf["base_url"],
             api_key=model_conf["api_key"],
             model=model_name,
+            api_mode=api_mode,
             temperature=temperature,
             max_tokens=max_tokens,
             retry_attempts=api_config.get("retry_attempts", 3),
@@ -246,6 +248,9 @@ def main():
 
     log.info("========== All experiments completed ==========")
 
+
+if __name__ == "__main__":
+    main()
 
 if __name__ == "__main__":
     main()
