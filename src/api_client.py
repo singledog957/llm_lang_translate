@@ -212,37 +212,69 @@ class APIClient:
                     response = _FakeResponse()
 
                 else:
-                    # 构建请求参数
-                    kwargs = {
+                    # -------------------------------------------------------
+                    # Chat Completions: POST directly via requests.
+                    # The OpenAI SDK's httpx layer causes the gateway to route
+                    # requests to the real OpenAI upstream, which applies
+                    # strict validation (e.g. json_object requires "json" in
+                    # messages, extra header fingerprinting, etc.) and returns
+                    # 400.  Using raw requests bypasses this routing.
+                    # -------------------------------------------------------
+                    http_headers = {
+                        "Authorization": f"Bearer {self._api_key}",
+                        "Content-Type": "application/json",
+                    }
+                    cc_payload: dict = {
                         "model": self.model,
                         "messages": msg_dicts,
                         "temperature": temp,
                         "max_tokens": tokens,
                     }
                     if response_format:
-                        kwargs["response_format"] = response_format
+                        cc_payload["response_format"] = response_format
 
-                    response = self._client.chat.completions.create(**kwargs)
+                    http_resp = _http.post(
+                        f"{self._base_url}/chat/completions",
+                        headers=http_headers,
+                        json=cc_payload,
+                        timeout=self.timeout,
+                    )
                     elapsed_ms = (time.time() - start) * 1000
 
-                    msg_obj = response.choices[0].message
-                    raw_content = getattr(msg_obj, "content", None)
-                    finish_reason = response.choices[0].finish_reason
-                    
+                    if http_resp.status_code != 200:
+                        # Re-raise as an APIError so the retry logic handles it
+                        raise APIError(
+                            message=http_resp.text,
+                            request=None,  # type: ignore[arg-type]
+                            body=http_resp.json() if http_resp.content else {},
+                        )
+
+                    data = http_resp.json()
+                    choice = data["choices"][0]
+                    msg_obj_dict = choice.get("message", {})
+                    raw_content = msg_obj_dict.get("content")
+                    finish_reason = choice.get("finish_reason", "")
+
                     # 特殊处理：某些推理模型（如 DeepSeek-R1）可能将内容放在 reasoning_content 中
-                    reasoning_content = getattr(msg_obj, "reasoning_content", None)
-                    
+                    reasoning_content = msg_obj_dict.get("reasoning_content")
                     if (raw_content is None or raw_content.strip() == "") and reasoning_content:
                         logger.info("Content is empty but found reasoning_content. Using reasoning_content as fallback.")
                         raw_content = reasoning_content
 
                     usage = {}
-                    if response.usage:
+                    u = data.get("usage", {})
+                    if u:
                         usage = {
-                            "prompt_tokens": response.usage.prompt_tokens,
-                            "completion_tokens": response.usage.completion_tokens,
-                            "total_tokens": response.usage.total_tokens,
+                            "prompt_tokens":     u.get("prompt_tokens", 0),
+                            "completion_tokens": u.get("completion_tokens", 0),
+                            "total_tokens":      u.get("total_tokens", 0),
                         }
+
+                    # Build a minimal object for the shared post-processing below
+                    class _FakeResponse:
+                        model = data.get("model", self.model)
+                    response = _FakeResponse()
+
 
                 if raw_content is None or raw_content.strip() == "":
                     # 打印完整响应以供 Debug
