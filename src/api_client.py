@@ -11,6 +11,7 @@ api_client.py — OpenAI Chat Completion API 封装
 
 import time
 import logging
+import requests as _http
 from dataclasses import dataclass, field
 from openai import OpenAI, APIError, RateLimitError, APIConnectionError
 
@@ -68,6 +69,8 @@ class APIClient:
         self.request_interval = request_interval
         self.timeout = timeout
 
+        self._base_url = base_url.rstrip("/")
+        self._api_key = api_key
         self._client = OpenAI(base_url=base_url, api_key=api_key, timeout=self.timeout)
         self._last_request_time: float = 0.0
 
@@ -105,61 +108,109 @@ class APIClient:
                 start = time.time()
                 
                 if self.api_mode == "response":
-                    kwargs = {
-                        "model": self.model,
-                        "temperature": temp,
-                        "max_output_tokens": tokens,
+                    # -------------------------------------------------------
+                    # Responses API: POST directly to /v1/responses via
+                    # requests (avoids SDK routing issues on third-party
+                    # gateways that expose /v1/responses as a Codex endpoint).
+                    # Falls back to /v1/chat/completions if output[] is empty.
+                    # Ref: Cherry Studio OpenAIResponseAPIClient pattern.
+                    # -------------------------------------------------------
+                    http_headers = {
+                        "Authorization": f"Bearer {self._api_key}",
+                        "Content-Type": "application/json",
                     }
                     system_msgs = [m["content"] for m in msg_dicts if m["role"] == "system"]
-                    if system_msgs:
-                        kwargs["instructions"] = "\n".join(system_msgs)
-                    input_msgs = [m for m in msg_dicts if m["role"] != "system"]
-                    if input_msgs:
-                        kwargs["input"] = input_msgs
-                    if response_format:
-                        kwargs["extra_body"] = {"response_format": response_format}
+                    input_msgs  = [m for m in msg_dicts if m["role"] != "system"]
 
-                    response = self._client.responses.create(**kwargs)
+                    resp_payload: dict = {"model": self.model}
+                    if system_msgs:
+                        resp_payload["instructions"] = "\n".join(system_msgs)
+                    if len(input_msgs) == 1 and input_msgs[0]["role"] == "user":
+                        # Compact form: single user turn → plain string input
+                        resp_payload["input"] = input_msgs[0]["content"]
+                    elif input_msgs:
+                        resp_payload["input"] = input_msgs
+                    if response_format:
+                        resp_payload["text"] = {"format": response_format}
+
+                    raw_content = None
+                    finish_reason = ""
+                    usage = {}
+                    response_model = self.model
+
+                    http_resp = _http.post(
+                        f"{self._base_url}/responses",
+                        headers=http_headers,
+                        json=resp_payload,
+                        timeout=self.timeout,
+                    )
                     elapsed_ms = (time.time() - start) * 1000
 
-                    raw_content = getattr(response, "output_text", None)
-                    if raw_content is None:
-                        # Fallback for various API gateway wrapper structures
-                        output_list = getattr(response, "output", None)
-                        if not output_list and isinstance(response, dict):
-                            output_list = response.get("output", [])
-                            
-                        if isinstance(output_list, list) and len(output_list) > 0:
-                            first_output = output_list[0]
-                            content_val = getattr(first_output, "content", None)
-                            if content_val is None and isinstance(first_output, dict):
-                                content_val = first_output.get("content")
-                                
-                            if isinstance(content_val, str):
-                                raw_content = content_val
-                            elif isinstance(content_val, list) and len(content_val) > 0:
-                                first_item = content_val[0]
-                                if isinstance(first_item, str):
-                                    raw_content = first_item
-                                elif isinstance(first_item, dict):
-                                    raw_content = first_item.get("text")
-                                else:
-                                    raw_content = getattr(first_item, "text", None)
-                                    
-                        if raw_content is None and hasattr(response, "choices"):
-                            raw_content = response.choices[0].message.content
-                        
-                    finish_reason = getattr(response, "status", "") # Fallback finish reason for responses
-                    
-                    usage = {}
-                    if hasattr(response, "usage") and response.usage:
-                        prompt_tokens = getattr(response.usage, "input_tokens", getattr(response.usage, "prompt_tokens", 0))
-                        completion_tokens = getattr(response.usage, "output_tokens", getattr(response.usage, "completion_tokens", 0))
+                    if http_resp.status_code == 200:
+                        data = http_resp.json()
+                        response_model = data.get("model", self.model)
+                        finish_reason = data.get("status", "")
+                        u = data.get("usage", {})
                         usage = {
-                            "prompt_tokens": prompt_tokens,
-                            "completion_tokens": completion_tokens,
-                            "total_tokens": getattr(response.usage, "total_tokens", 0),
+                            "prompt_tokens":     u.get("input_tokens",  u.get("prompt_tokens", 0)),
+                            "completion_tokens": u.get("output_tokens", u.get("completion_tokens", 0)),
+                            "total_tokens":      u.get("total_tokens", 0),
                         }
+                        # Parse canonical Responses API output structure
+                        for item in data.get("output", []):
+                            if item.get("role") == "assistant":
+                                for part in item.get("content", []):
+                                    if part.get("type") == "output_text":
+                                        raw_content = part.get("text")
+                                        break
+                                if raw_content is None and isinstance(item.get("content"), str):
+                                    raw_content = item["content"]
+                                if raw_content:
+                                    break
+
+                        if raw_content:
+                            logger.debug("/v1/responses succeeded for model=%s", self.model)
+                        else:
+                            logger.warning(
+                                "/v1/responses returned empty output[] (output_tokens=%s). "
+                                "Falling back to /v1/chat/completions.",
+                                usage.get("completion_tokens", "?")
+                            )
+                    else:
+                        logger.warning(
+                            "/v1/responses HTTP %s: %s — falling back to /v1/chat/completions.",
+                            http_resp.status_code, http_resp.text[:200],
+                        )
+
+                    # Fallback: chat completions when responses endpoint fails/empty
+                    if not raw_content:
+                        fb_kwargs = {
+                            "model": self.model,
+                            "messages": msg_dicts,
+                            "temperature": temp,
+                            "max_tokens": tokens,
+                        }
+                        if response_format:
+                            fb_kwargs["response_format"] = response_format
+                        fb_start = time.time()
+                        fb_resp = self._client.chat.completions.create(**fb_kwargs)
+                        elapsed_ms = (time.time() - fb_start) * 1000
+                        response_model = getattr(fb_resp, "model", self.model) or self.model
+                        msg_obj = fb_resp.choices[0].message
+                        raw_content = getattr(msg_obj, "content", None)
+                        finish_reason = fb_resp.choices[0].finish_reason
+                        if fb_resp.usage:
+                            usage = {
+                                "prompt_tokens":     fb_resp.usage.prompt_tokens,
+                                "completion_tokens": fb_resp.usage.completion_tokens,
+                                "total_tokens":      fb_resp.usage.total_tokens,
+                            }
+
+                    # Unified post-processing variable for the response block below
+                    class _FakeResponse:
+                        model = response_model
+                    response = _FakeResponse()
+
                 else:
                     # 构建请求参数
                     kwargs = {
