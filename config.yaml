@@ -1,0 +1,49 @@
+# ==================================================
+# 跨语言翻译链实验配置
+# ==================================================
+
+experiment:
+  source_file: "1_data/source/source_EN.md"
+  source_lang_prefix: "EN"          # 从源文件中筛选此前缀的段落
+  source_count: 20                  # 使用前 N 条（0 = 全部）
+  output_dir: "3_exps/results"
+  prompts_dir: "1_data/prompts"
+  prompt_lang: "EN"                 # Prompt 模板语言后缀
+
+# 实验组定义
+groups:
+  - name: "group1_EN_JA_ZH_FR"
+    chain: ["EN", "JA", "ZH", "FR"]
+    origin_lang: "EN"               # 回译目标语言
+
+  - name: "group2_EN_FR_ZH_JA"
+    chain: ["EN", "FR", "ZH", "JA"]
+    origin_lang: "EN"
+
+  - name: "group3_EN_FR_DE_IT"
+    chain: ["EN", "FR", "DE", "IT"]
+    origin_lang: "EN"
+
+  - name: "group4_EN_paraphrase"
+    chain: ["EN", "EN", "EN", "EN"]
+    origin_lang: "EN"
+    type: "paraphrase"              # 改写模式（非翻译）
+
+# 语言代码 → 全称映射（用于 prompt 变量替换）
+languages:
+  EN: "English"
+  JA: "Japanese"
+  ZH: "Chinese"
+  FR: "French"
+  DE: "German"
+  IT: "Italian"
+  ES: "Spanish"
+  RU: "Russian"
+  PT: "Portuguese"
+  KO: "Korean"
+
+# API 调用配置
+api:
+  retry_attempts: 3
+  retry_delay: 2.0                  # 秒，指数退避基数
+  request_interval: 0.5             # 请求间隔（秒），避免 rate limit

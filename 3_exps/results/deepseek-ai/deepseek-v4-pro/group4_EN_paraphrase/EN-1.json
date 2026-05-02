@@ -1,0 +1,52 @@
+{
+  "source_id": "EN-1",
+  "group": "group4_EN_paraphrase",
+  "chain": [
+    "EN",
+    "EN",
+    "EN",
+    "EN"
+  ],
+  "type": "paraphrase",
+  "texts": {
+    "EN0": "The international climate conference will begin next Monday in Singapore, although several researchers may arrive late because of typhoon disruptions. One delegate jokingly said the organizers were \"tempting fate\" by choosing this season. Because last year's summit ended badly, the committee still hopes to save face diplomatically. Some analysts cautiously warned that another public failure could damage regional cooperation.",
+    "EN1": "Starting next Monday, Singapore will host the global climate summit, though typhoon-related travel issues may delay the arrival of a few scientists. One attendee quipped that by picking this time of year, the planners were practically \"asking for trouble.\" Following the poor outcome of the previous year's gathering, the committee is still keen to maintain diplomatic dignity. Several experts issued measured warnings that another widely visible breakdown could undermine collaborative efforts in the region.",
+    "EN2": "Beginning next Monday, Singapore will be the venue for the international climate conference, although travel disruptions caused by a typhoon could postpone the arrival of several scientists. One participant joked that the organizers were practically \"courting disaster\" by selecting this time of year. After the disappointing results of last year's summit, the committee remains eager to preserve its diplomatic standing. A number of experts cautiously cautioned that another highly visible failure might jeopardize cooperative initiatives in the region.",
+    "EN3": "Starting next Monday, Singapore will host the global climate summit, though a typhoon's disruptive effects may delay the arrival of several researchers. One delegate quipped that by picking this season, the organizers were practically \"tempting fate.\" Still hoping to recover diplomatically after last year's summit ended poorly, the committee seeks to maintain its reputation. Several experts have issued careful warnings that another public setback could undermine regional collaborative efforts."
+  },
+  "steps": [
+    {
+      "step": 1,
+      "direction": "EN→EN",
+      "type": "paraphrase",
+      "tokens": {
+        "prompt_tokens": 602,
+        "completion_tokens": 505,
+        "total_tokens": 1107
+      }
+    },
+    {
+      "step": 2,
+      "direction": "EN→EN",
+      "type": "paraphrase",
+      "tokens": {
+        "prompt_tokens": 786,
+        "completion_tokens": 407,
+        "total_tokens": 1193
+      }
+    },
+    {
+      "step": 3,
+      "direction": "EN→EN",
+      "type": "paraphrase",
+      "tokens": {
+        "prompt_tokens": 688,
+        "completion_tokens": 513,
+        "total_tokens": 1201
+      }
+    }
+  ],
+  "metadata": {
+    "model": "deepseek-ai/deepseek-v4-pro"
+  }
+}

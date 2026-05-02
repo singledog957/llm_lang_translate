@@ -1,0 +1,85 @@
+{
+  "source_id": "EN-1",
+  "group": "group3_EN_FR_DE_IT",
+  "chain": [
+    "EN",
+    "FR",
+    "DE",
+    "IT"
+  ],
+  "type": "translate",
+  "texts": {
+    "EN0": "The international climate conference will begin next Monday in Singapore, although several researchers may arrive late because of typhoon disruptions. One delegate jokingly said the organizers were \"tempting fate\" by choosing this season. Because last year's summit ended badly, the committee still hopes to save face diplomatically. Some analysts cautiously warned that another public failure could damage regional cooperation.",
+    "FR": "La conférence internationale sur le climat débutera lundi prochain à Singapour, bien que plusieurs chercheurs puissent arriver en retard en raison de perturbations causées par un typhon. Un délégué a déclaré en plaisantant que les organisateurs « tentaient le sort » en choisissant cette saison. Comme le sommet de l'année dernière s'est mal terminé, le comité espère encore sauver la face sur le plan diplomatique. Certains analystes ont prudemment averti qu'un nouvel échec public pourrait nuire à la coopération régionale.",
+    "EN1": "The international climate conference will begin next Monday in Singapore, although several researchers may arrive late due to disruptions caused by a typhoon. One delegate joked that the organizers were \"tempting fate\" by choosing this season. As last year's summit ended badly, the committee still hopes to save face diplomatically. Some analysts cautiously warned that another public failure could harm regional cooperation.",
+    "DE": "Die internationale Klimakonferenz beginnt am kommenden Montag in Singapur, obwohl mehrere Forscher aufgrund von Störungen durch einen Taifun verspätet eintreffen könnten. Ein Delegierter erklärte scherzhaft, die Organisatoren würden das Schicksal herausfordern, indem sie diese Jahreszeit wählen. Da der letztjährige Gipfel schlecht endete, hofft das Komitee immer noch, auf diplomatischer Ebene das Gesicht zu wahren. Einige Analysten warnten vorsichtig, dass ein erneutes öffentliches Scheitern der regionalen Zusammenarbeit schaden könnte.",
+    "EN2": "The international climate conference begins next Monday in Singapore, although several researchers could arrive late due to disruptions from a typhoon. One delegate remarked jokingly that the organizers were challenging fate by choosing this season. Since last year's summit ended badly, the committee still hopes to save face on a diplomatic level. Some analysts cautiously warned that another public failure could harm regional cooperation.",
+    "IT": "La conferenza internazionale sul clima inizierà lunedì prossimo a Singapore, anche se diversi ricercatori potrebbero arrivare in ritardo a causa delle perturbazioni provocate da un tifone. Un delegato ha dichiarato scherzosamente che gli organizzatori stanno sfidando il destino scegliendo questa stagione. Poiché il vertice dello scorso anno si è concluso male, il comitato spera ancora di salvare la faccia a livello diplomatico. Alcuni analisti hanno avvertito con cautela che un nuovo fallimento pubblico potrebbe danneggiare la cooperazione regionale.",
+    "EN3": "The international climate conference will begin next Monday in Singapore, although several researchers may arrive late due to disruptions caused by a typhoon. One delegate jokingly stated that the organizers are tempting fate by choosing this season. Since last year's summit ended badly, the committee still hopes to save face diplomatically. Some analysts have cautiously warned that another public failure could damage regional cooperation."
+  },
+  "steps": [
+    {
+      "step": 1,
+      "direction": "EN→FR",
+      "type": "translate",
+      "tokens": {
+        "prompt_tokens": 602,
+        "completion_tokens": 505,
+        "total_tokens": 1107
+      }
+    },
+    {
+      "step": 1,
+      "direction": "FR→EN",
+      "type": "backtranslation",
+      "tokens": {
+        "prompt_tokens": 617,
+        "completion_tokens": 245,
+        "total_tokens": 862
+      }
+    },
+    {
+      "step": 2,
+      "direction": "FR→DE",
+      "type": "translate",
+      "tokens": {
+        "prompt_tokens": 786,
+        "completion_tokens": 407,
+        "total_tokens": 1193
+      }
+    },
+    {
+      "step": 2,
+      "direction": "DE→EN",
+      "type": "backtranslation",
+      "tokens": {
+        "prompt_tokens": 515,
+        "completion_tokens": 255,
+        "total_tokens": 770
+      }
+    },
+    {
+      "step": 3,
+      "direction": "DE→IT",
+      "type": "translate",
+      "tokens": {
+        "prompt_tokens": 688,
+        "completion_tokens": 513,
+        "total_tokens": 1201
+      }
+    },
+    {
+      "step": 3,
+      "direction": "IT→EN",
+      "type": "backtranslation",
+      "tokens": {
+        "prompt_tokens": 628,
+        "completion_tokens": 258,
+        "total_tokens": 886
+      }
+    }
+  ],
+  "metadata": {
+    "model": "deepseek-ai/deepseek-v4-pro"
+  }
+}

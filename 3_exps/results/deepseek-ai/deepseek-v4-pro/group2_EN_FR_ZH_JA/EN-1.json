@@ -1,0 +1,85 @@
+{
+  "source_id": "EN-1",
+  "group": "group2_EN_FR_ZH_JA",
+  "chain": [
+    "EN",
+    "FR",
+    "ZH",
+    "JA"
+  ],
+  "type": "translate",
+  "texts": {
+    "EN0": "The international climate conference will begin next Monday in Singapore, although several researchers may arrive late because of typhoon disruptions. One delegate jokingly said the organizers were \"tempting fate\" by choosing this season. Because last year's summit ended badly, the committee still hopes to save face diplomatically. Some analysts cautiously warned that another public failure could damage regional cooperation.",
+    "FR": "La conférence internationale sur le climat débutera lundi prochain à Singapour, bien que plusieurs chercheurs puissent arriver en retard en raison de perturbations causées par un typhon. Un délégué a déclaré en plaisantant que les organisateurs « tentaient le sort » en choisissant cette saison. Comme le sommet de l'année dernière s'est mal terminé, le comité espère encore sauver la face sur le plan diplomatique. Certains analystes ont prudemment averti qu'un nouvel échec public pourrait nuire à la coopération régionale.",
+    "EN1": "The international climate conference will begin next Monday in Singapore, although several researchers may arrive late due to disruptions caused by a typhoon. One delegate joked that the organizers were \"tempting fate\" by choosing this season. As last year's summit ended badly, the committee still hopes to save face diplomatically. Some analysts cautiously warned that another public failure could harm regional cooperation.",
+    "ZH": "国际气候会议将于下周一在新加坡开幕，不过由于台风造成的干扰，数位研究人员可能会延迟抵达。一位代表开玩笑说，组织者选择这个季节是在“碰运气”。鉴于去年的峰会收场不佳，委员会仍希望在外交层面保全颜面。一些分析人士审慎地警告称，再一次公开失败可能会损害地区合作。",
+    "EN2": "The international climate conference will open in Singapore next Monday, though due to disruptions caused by a typhoon, several researchers may be delayed in arriving. One delegate joked that the organizers were \"tempting fate\" by choosing this season. Given that last year's summit ended poorly, the committee still hopes to save face on a diplomatic level. Some analysts cautiously warn that another public failure could damage regional cooperation.",
+    "JA": "国際気候会議は来週月曜日にシンガポールで開幕するが、台風の影響により、数名の研究者の到着が遅れる可能性がある。ある代表は、主催者がこの時期を選んだのは「運試し」のようなものだと冗談交じりに述べた。昨年のサミットが不本意な結果に終わったため、委員会は依然として外交面での面目を保ちたいと考えている。一部のアナリストは、再び公の場で失敗すれば地域協力に悪影響を及ぼしかねないと慎重に警告している。",
+    "EN3": "The international climate conference will open next Monday in Singapore, but due to a typhoon, the arrival of several researchers may be delayed. One delegate remarked, half-jokingly, that the organizers choosing this period was like \"tempting fate.\" Following the disappointing outcome of last year's summit, the committee still hopes to save face diplomatically. Some analysts cautiously warn that another public failure could negatively impact regional cooperation."
+  },
+  "steps": [
+    {
+      "step": 1,
+      "direction": "EN→FR",
+      "type": "translate",
+      "tokens": {
+        "prompt_tokens": 602,
+        "completion_tokens": 505,
+        "total_tokens": 1107
+      }
+    },
+    {
+      "step": 1,
+      "direction": "FR→EN",
+      "type": "backtranslation",
+      "tokens": {
+        "prompt_tokens": 617,
+        "completion_tokens": 245,
+        "total_tokens": 862
+      }
+    },
+    {
+      "step": 2,
+      "direction": "FR→ZH",
+      "type": "translate",
+      "tokens": {
+        "prompt_tokens": 786,
+        "completion_tokens": 407,
+        "total_tokens": 1193
+      }
+    },
+    {
+      "step": 2,
+      "direction": "ZH→EN",
+      "type": "backtranslation",
+      "tokens": {
+        "prompt_tokens": 515,
+        "completion_tokens": 255,
+        "total_tokens": 770
+      }
+    },
+    {
+      "step": 3,
+      "direction": "ZH→JA",
+      "type": "translate",
+      "tokens": {
+        "prompt_tokens": 688,
+        "completion_tokens": 513,
+        "total_tokens": 1201
+      }
+    },
+    {
+      "step": 3,
+      "direction": "JA→EN",
+      "type": "backtranslation",
+      "tokens": {
+        "prompt_tokens": 628,
+        "completion_tokens": 258,
+        "total_tokens": 886
+      }
+    }
+  ],
+  "metadata": {
+    "model": "deepseek-ai/deepseek-v4-pro"
+  }
+}
