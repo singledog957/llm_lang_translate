@@ -111,6 +111,7 @@ def main():
     load_dotenv()
     temperature = float(os.environ.get("TEMPERATURE", "0.0"))
     max_tokens = int(os.environ.get("MAX_TOKENS", "4096"))
+    timeout = float(os.environ.get("TIMEOUT", "60.0"))
     paragraphs_per_request = int(os.environ.get("PARAGRAPHS_PER_REQUEST", "1"))
 
     # 2. 加载 config.yaml
@@ -194,10 +195,20 @@ def main():
 
     for model_conf in models:
         model_name = model_conf["name"]
-        safe_name = sanitize_model_name(model_name)
-        run_dir = f"{safe_name}_{timestamp}"
+        
+        # --- Prepare Output Directory ---
+        resume_dir = os.getenv("RESUME_DIR")
+        if resume_dir and os.path.isdir(resume_dir):
+            output_path = resume_dir
+            log.info("Resuming experiment in existing directory: %s", output_path)
+        else:
+            safe_name = sanitize_model_name(model_name)
+            run_dir = f"{safe_name}_{timestamp}"
+            output_path = os.path.join(exp_config["output_dir"], run_dir)
+            os.makedirs(output_path, exist_ok=True)
+            log.info("Output directory: %s", output_path)
+
         log.info("========== Running with model: %s ==========", model_name)
-        log.info("Output directory: %s/%s", exp_config["output_dir"], run_dir)
 
         # 创建 API 客户端
         api_client = APIClient(
@@ -209,10 +220,10 @@ def main():
             retry_attempts=api_config.get("retry_attempts", 3),
             retry_delay=api_config.get("retry_delay", 2.0),
             request_interval=api_config.get("request_interval", 0.5),
+            timeout=timeout,
         )
 
-        # 创建日志记录器（带时间戳的独立目录）
-        output_path = os.path.join(exp_config["output_dir"], run_dir)
+        # 创建日志记录器
         log_dir = os.path.join(output_path, "logs")
         exp_logger = ExperimentLogger(log_dir=log_dir, model_name=model_name)
 

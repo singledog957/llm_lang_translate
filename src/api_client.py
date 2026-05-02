@@ -34,6 +34,7 @@ class APIResponse:
     usage: dict = field(default_factory=dict)   # token 用量
     model: str = ""
     latency_ms: float = 0.0
+    finish_reason: str = ""                     # "stop" | "length" | "content_filter" | etc.
 
 
 class APIClient:
@@ -55,6 +56,7 @@ class APIClient:
         retry_attempts: int = 3,
         retry_delay: float = 2.0,
         request_interval: float = 0.5,
+        timeout: float = 60.0,
     ):
         self.model = model
         self.temperature = temperature
@@ -62,8 +64,9 @@ class APIClient:
         self.retry_attempts = retry_attempts
         self.retry_delay = retry_delay
         self.request_interval = request_interval
+        self.timeout = timeout
 
-        self._client = OpenAI(base_url=base_url, api_key=api_key)
+        self._client = OpenAI(base_url=base_url, api_key=api_key, timeout=self.timeout)
         self._last_request_time: float = 0.0
 
     # ------------------------------------------------------------------
@@ -75,6 +78,7 @@ class APIClient:
         messages: list[ChatMessage],
         temperature: float | None = None,
         max_tokens: int | None = None,
+        response_format: dict | None = None,
     ) -> APIResponse:
         """
         发送一次 Chat Completion 请求并返回结果。
@@ -83,6 +87,7 @@ class APIClient:
             messages: 对话消息列表
             temperature: 覆盖默认 temperature（可选）
             max_tokens: 覆盖默认 max_tokens（可选）
+            response_format: 响应格式配置，例如 {"type": "json_object"}
 
         Returns:
             APIResponse 包含回复文本、token 用量等
@@ -96,15 +101,31 @@ class APIClient:
         for attempt in range(1, self.retry_attempts + 1):
             try:
                 start = time.time()
-                response = self._client.chat.completions.create(
-                    model=self.model,
-                    messages=msg_dicts,
-                    temperature=temp,
-                    max_tokens=tokens,
-                )
+                
+                # 构建请求参数
+                kwargs = {
+                    "model": self.model,
+                    "messages": msg_dicts,
+                    "temperature": temp,
+                    "max_tokens": tokens,
+                }
+                if response_format:
+                    kwargs["response_format"] = response_format
+
+                response = self._client.chat.completions.create(**kwargs)
                 elapsed_ms = (time.time() - start) * 1000
 
-                content = response.choices[0].message.content.strip()
+                msg_obj = response.choices[0].message
+                raw_content = getattr(msg_obj, "content", None)
+                finish_reason = response.choices[0].finish_reason
+                
+                # 特殊处理：某些推理模型（如 DeepSeek-R1）可能将内容放在 reasoning_content 中
+                reasoning_content = getattr(msg_obj, "reasoning_content", None)
+                
+                if (raw_content is None or raw_content.strip() == "") and reasoning_content:
+                    logger.info("Content is empty but found reasoning_content. Using reasoning_content as fallback.")
+                    raw_content = reasoning_content
+
                 usage = {}
                 if response.usage:
                     usage = {
@@ -113,16 +134,38 @@ class APIClient:
                         "total_tokens": response.usage.total_tokens,
                     }
 
+                if raw_content is None or raw_content.strip() == "":
+                    # 打印完整响应以供 Debug
+                    import json
+                    try:
+                        # 尝试获取底层的 dict，以防 SDK 过滤了非标准字段
+                        full_dict = response.model_dump()
+                        full_resp_log = json.dumps(full_dict, indent=2, ensure_ascii=False)
+                        
+                        # 检查 choices[0].message 中是否有任何非 None 的字段
+                        msg_dict = full_dict.get("choices", [{}])[0].get("message", {})
+                        found_fields = [k for k, v in msg_dict.items() if v is not None and k != "role"]
+                        if found_fields:
+                            logger.warning(f"Message content is null, but found other fields: {found_fields}")
+                    except:
+                        full_resp_log = str(response)
+                        
+                    logger.warning(f"Received empty content from API. Full response: {full_resp_log}")
+                    raise ValueError(f"Empty content received from model {self.model}. Finish reason: {finish_reason}. Usage: {usage}")
+                
+                content = raw_content.strip()
+                
                 self._last_request_time = time.time()
                 logger.debug(
-                    "API call succeeded: model=%s, tokens=%s, latency=%.0fms",
-                    self.model, usage.get("total_tokens", "?"), elapsed_ms,
+                    "API call succeeded: model=%s, tokens=%s, finish_reason=%s, latency=%.0fms",
+                    self.model, usage.get("total_tokens", "?"), finish_reason, elapsed_ms,
                 )
                 return APIResponse(
                     content=content,
                     usage=usage,
                     model=response.model or self.model,
                     latency_ms=elapsed_ms,
+                    finish_reason=finish_reason or "",
                 )
 
             except RateLimitError as e:

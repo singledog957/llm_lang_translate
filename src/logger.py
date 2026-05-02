@@ -41,6 +41,7 @@ class ExperimentLogger:
         self._total_calls = 0
         self._total_tokens = 0
         self._start_time = time.time()
+        self._progress_cache: dict | None = None
 
     # ------------------------------------------------------------------
     # API 调用记录
@@ -111,16 +112,42 @@ class ExperimentLogger:
         """
         progress["updated_at"] = datetime.now(timezone.utc).isoformat()
         progress["model"] = self.model_name
+        self._progress_cache = progress
 
         with open(self._progress_path, "w", encoding="utf-8") as f:
             json.dump(progress, f, ensure_ascii=False, indent=2)
 
     def load_progress(self) -> dict[str, Any]:
-        """加载上次保存的进度。"""
-        if not os.path.isfile(self._progress_path):
-            return {}
-        with open(self._progress_path, "r", encoding="utf-8") as f:
-            return json.load(f)
+        """加载上次保存的进度。如果 progress.json 不存在，则通过扫描目录恢复。"""
+        if self._progress_cache is not None:
+            return self._progress_cache
+
+        if os.path.isfile(self._progress_path):
+            try:
+                with open(self._progress_path, "r", encoding="utf-8") as f:
+                    self._progress_cache = json.load(f)
+                    return self._progress_cache
+            except Exception:
+                pass
+        
+        # 自动恢复逻辑：扫描 3_exps/results/{dir}/{group}/{id}.json
+        completed = {}
+        if os.path.isdir(self.log_dir):
+            for group_name in os.listdir(self.log_dir):
+                group_path = os.path.join(self.log_dir, group_name)
+                if os.path.isdir(group_path) and not group_name.startswith("."):
+                    for filename in os.listdir(group_path):
+                        if filename.endswith(".json") and not filename.startswith("summary"):
+                            source_id = filename.replace(".json", "")
+                            completed.setdefault(source_id, []).append(group_name)
+        
+        if completed:
+            logger.info(f"Auto-recovered progress for {len(completed)} source texts.")
+            self._progress_cache = {"completed": completed}
+            return self._progress_cache
+            
+        self._progress_cache = {}
+        return self._progress_cache
 
     def is_completed(self, source_id: str, group_name: str) -> bool:
         """检查某个 (source_id, group_name) 组合是否已完成。"""

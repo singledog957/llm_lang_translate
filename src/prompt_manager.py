@@ -120,20 +120,16 @@ class PromptManager:
 
         # 构建各任务描述
         task_blocks: list[str] = []
-        output_blocks: list[str] = []
-
         for task in tasks:
             tid = task["task_id"]
             rendered = self.render(task["template_name"], **task["variables"])
-            task_blocks.append(f"=== Task {tid} ===\n{rendered}")
-            output_blocks.append(f"=== Result {tid} ===\n[your output here]")
+            task_blocks.append(f"--- Task {tid} ---\n{rendered}")
 
         tasks_str = "\n\n".join(task_blocks)
-        output_str = "\n\n".join(output_blocks)
 
         return self._templates[TEMPLATE_BATCH_WRAPPER].format(
             tasks=tasks_str,
-            output_format=output_str,
+            task_count=len(tasks),
         )
 
     # ------------------------------------------------------------------

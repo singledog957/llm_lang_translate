@@ -68,7 +68,28 @@
 每段源文本生成一个 JSON 文件，包含完整翻译链的所有中间文本和元数据。
 各组实验还生成 JSONL（机器可读）和 Markdown（人类可读）汇总文件。
 
-## 多模型支持
+## 实验管理
+### 断点续传 (Breakpoint Resumption)
+系统支持在异常中断（如网络错误、频率限制）后恢复实验：
+1. 在 `.env` 中设置 `RESUME_DIR` 为之前运行产生的目录路径。
+2. 重新运行 `run_experiment.py`。
+3. 系统会自动扫描已存在的 `.json` 结果文件并跳过已完成的任务。
 
-在 `.env` 中配置多组 `MODEL{N}_*` 变量，系统自动检测并按顺序串行执行全部实验。
-每个模型的结果保存在独立的时间戳目录中，避免覆盖。
+### 结构化输出 (Structured Outputs)
+为了保证批量任务解析的 100% 准确率，系统使用了 **JSON Mode**：
+- 在 API 请求中强制开启 `response_format={"type": "json_object"}`。
+- 模型返回结果被严格约束为 `{"results": ["...", "..."]}` 格式。
+- 如果解析失败，原始响应将保存至 `failed_response_debug.json` 供调试。
+
+## 配置层次
+```
+.env                    # 敏感信息（API keys）+ 运行时参数（TIMEOUT, PARAGRAPHS_PER_REQUEST, RESUME_DIR）
+    ↓
+config.yaml             # 实验定义（组、语言、路径）
+    ↓
+1_data/prompts/*.txt    # Prompt 模板（JSON 批量协议）
+```
+
+## 多模型支持
+在 `.env` 中配置多组 `MODEL{N}_*` 变量，系统自动检测并按顺序串行执行全部实验。 每个模型的结果保存在独立的时间戳目录中，避免覆盖。
+

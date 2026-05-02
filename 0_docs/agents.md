@@ -89,27 +89,22 @@ client.chat_completion(messages: list[ChatMessage]) -> APIResponse
 **核心逻辑**：
 1. 将 N 段源文本按 `PARAGRAPHS_PER_REQUEST` 分批
 2. 对每个批次，按轮次（step）执行：
-   - 主翻译批量请求：`groups × paragraphs` 个任务
-   - 回译批量请求：`non-paraphrase-groups × paragraphs` 个任务
-3. 每轮结果更新到各组的 `current_texts` 状态
-4. 完成后保存 JSON 结果并标记进度
+### 4. Translator (翻译执行器)
+- **职责**: 执行单条或批量翻译。
+- **批量协议**: 
+    - 使用 `render_batch` 将多个任务封装。
+    - **JSON 协议**: 强制要求模型返回 `{"results": ["...", "..."]}` 格式。
+    - **结构化输出**: 调用 API 时启用 `response_format={"type": "json_object"}`。
+- **解析鲁棒性**: 
+    - 优先 JSON 解析 $\rightarrow$ 代码块提取 $\rightarrow$ 正则匹配回退。
+    - 若完全失败，保存原始响应至 `failed_response_debug.json` 并中断实验。
 
-**关键约束**：
-- 同组实验的不同轮次**必须串行**（第 N+1 步依赖第 N 步输出）
-- 不同组 / 不同段的同一轮次**可合并**到一次 API 请求
-- 所有 API 请求串行发送（无并发）
-
-**断点续做**：通过 `ExperimentLogger.is_completed()` 检查已完成的 `(source_id, group_name)` 组合。
-
----
-
-### 6. ExperimentLogger (`src/logger.py`)
-
-**职责**：日志记录与进度追踪。
-
-- `api_calls.jsonl`：每次 API 调用的完整记录（prompt、response、tokens、延迟）
-- `progress.json`：已完成的 `(source_id, group_name)` 映射（支持断点续做）
-- `summary.json`：实验摘要统计（总调用次数、tokens、耗时）
+### 5. ExperimentLogger (过程记录器)
+- **日志**: 生成 `api_calls.jsonl`（完整记录）和 `progress.json`（进度状态）。
+- **断点续做**: 
+    - 自动检查 `progress.json`。
+    - **自动恢复**: 若进度文件缺失，会通过扫描磁盘上的 `.json` 结果文件自动重建进度状态。
+- **调试**: 捕获并记录 API 错误、解析异常及 Token 消耗。`summary.json`：实验摘要统计（总调用次数、tokens、耗时）
 
 ---
 
