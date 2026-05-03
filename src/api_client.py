@@ -250,6 +250,74 @@ class APIClient:
                         model = response_model
                     response = _FakeResponse()
 
+                elif self.api_mode == "anthropic":
+                    # -------------------------------------------------------
+                    # Anthropic Messages API
+                    # -------------------------------------------------------
+                    http_headers = {
+                        "x-api-key": self._api_key,
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json",
+                        "Authorization": f"Bearer {self._api_key}" # for compatible gateways
+                    }
+                    
+                    system_msgs = [m["content"] for m in msg_dicts if m["role"] == "system"]
+                    anthropic_msgs = [m for m in msg_dicts if m["role"] != "system"]
+                    
+                    resp_payload = {
+                        "model": self.model,
+                        "max_tokens": tokens or self.max_tokens,
+                        "messages": anthropic_msgs
+                    }
+                    if temp is not None:
+                        resp_payload["temperature"] = temp
+                    if system_msgs:
+                        resp_payload["system"] = "\n".join(system_msgs)
+                        
+                    http_resp = _http.post(
+                        f"{self._base_url}/messages",
+                        headers=http_headers,
+                        json=resp_payload,
+                        timeout=self.timeout
+                    )
+                    elapsed_ms = (time.time() - start) * 1000
+
+                    if http_resp.status_code != 200:
+                        try:
+                            err_body = http_resp.json()
+                        except Exception:
+                            err_body = {"raw": http_resp.text}
+                        raise APIError(
+                            message=http_resp.text or f"HTTP {http_resp.status_code}",
+                            request=None,
+                            body=err_body,
+                        )
+
+                    data = http_resp.json()
+                    
+                    # Extract text content
+                    text_parts = []
+                    if "content" in data and isinstance(data["content"], list):
+                        for block in data["content"]:
+                            if block.get("type") == "text":
+                                text_parts.append(block.get("text", ""))
+                    
+                    raw_content = "".join(text_parts)
+                    finish_reason = data.get("stop_reason", "")
+                    
+                    usage = {}
+                    u = data.get("usage", {})
+                    if u:
+                        usage = {
+                            "prompt_tokens": u.get("input_tokens", 0),
+                            "completion_tokens": u.get("output_tokens", 0),
+                            "total_tokens": u.get("input_tokens", 0) + u.get("output_tokens", 0)
+                        }
+
+                    class _FakeResponse:
+                        model = data.get("model", self.model)
+                    response = _FakeResponse()
+
                 else:
                     # -------------------------------------------------------
                     # Chat Completions: POST directly via requests.
@@ -282,10 +350,14 @@ class APIClient:
 
                     if http_resp.status_code != 200:
                         # Re-raise as an APIError so the retry logic handles it
+                        try:
+                            err_body = http_resp.json()
+                        except Exception:
+                            err_body = {"raw": http_resp.text}
                         raise APIError(
-                            message=http_resp.text,
+                            message=http_resp.text or f"HTTP {http_resp.status_code}",
                             request=None,  # type: ignore[arg-type]
-                            body=http_resp.json() if http_resp.content else {},
+                            body=err_body,
                         )
 
                     data = http_resp.json()

@@ -9,6 +9,7 @@ run_experiment.py — 跨语言翻译链实验主入口
 """
 
 import argparse
+import json
 import logging
 import os
 import re
@@ -201,6 +202,24 @@ def main():
         if resume_dir and os.path.isdir(resume_dir):
             output_path = resume_dir
             log.info("Resuming experiment in existing directory: %s", output_path)
+
+            # Check model mismatch in progress.json
+            progress_path = os.path.join(output_path, "logs", "progress.json")
+            if os.path.exists(progress_path):
+                try:
+                    with open(progress_path, "r", encoding="utf-8") as f:
+                        old_progress = json.load(f)
+                        old_model = old_progress.get("model")
+                        if old_model and old_model != model_name:
+                            print(f"\n[WARNING] Model Mismatch detected in {output_path}")
+                            print(f"  Current model: {model_name}")
+                            print(f"  Resumed model: {old_model}")
+                            ans = input("  Continue anyway? (y/N): ").strip().lower()
+                            if ans != 'y':
+                                log.info("User aborted due to model mismatch.")
+                                sys.exit(0)
+                except Exception as e:
+                    log.warning("Failed to check model name in progress.json: %s", e)
         else:
             safe_name = sanitize_model_name(model_name)
             run_dir = f"{safe_name}_{timestamp}"
@@ -248,9 +267,6 @@ def main():
 
     log.info("========== All experiments completed ==========")
 
-
-if __name__ == "__main__":
-    main()
 
 if __name__ == "__main__":
     main()
