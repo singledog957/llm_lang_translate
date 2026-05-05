@@ -221,28 +221,7 @@ class Translator:
                     logger.warning("JSON parsed but dict missing keys: found %d/%d", len(extracted), expected_count)
 
         except json.JSONDecodeError as e:
-            logger.warning("JSONDecodeError: %s. Attempting heuristic extraction...", str(e))
-            
-            # 启发式提取：针对 Dict 结构 {"1": "...", "2": "..."}
-            results_match = re.search(r'"results"\s*:\s*\{(.*)', clean_content, re.DOTALL)
-            if results_match:
-                dict_content = results_match.group(1)
-                # 提取形如 "数字": "内容"
-                pattern = r'"(\d+)"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"'
-                matches = re.findall(pattern, dict_content)
-                
-                extracted_dict = {m[0]: m[1] for m in matches}
-                extracted = []
-                for i in range(1, expected_count + 1):
-                    key = str(i)
-                    if key in extracted_dict:
-                        extracted.append(extracted_dict[key].strip())
-                        
-                if len(extracted) == expected_count:
-                    logger.info("Heuristic extraction succeeded: found %d results via regex.", len(extracted))
-                    return extracted
-                elif len(extracted) > 0:
-                    logger.warning("Heuristic extraction found partial results: %d/%d", len(extracted), expected_count)
+            logger.warning("JSONDecodeError: %s. JSON payload is incomplete or malformed. Skipping heuristic extraction to trigger retry.", str(e))
 
         # 2. 尝试正则表达式解析 (回退策略)
         logger.warning("JSON parse failed or length mismatch, trying regex fallback...")
