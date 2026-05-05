@@ -194,23 +194,43 @@ class ExperimentRunner:
                     "metadata": {"model": self.translator.api_client.model},
                 }
 
-        # 按轮次执行
         for step in range(max_steps):
-            # --- 主翻译（批量：多组 × 多段）---
-            translate_tasks: list[TranslationTask] = []
-            # 记录每个 task 对应的 (source, group)
-            task_mapping: list[tuple[SourceText, ExperimentGroup]] = []
-
+            # --- 筛选本轮活动的源文本与组 ---
+            active_pairs: list[tuple[SourceText, ExperimentGroup]] = []
             for g in groups:
                 if step >= g.num_steps:
                     continue
                 for source in sources:
-                    if self.exp_logger.is_completed(source.id, g.name):
-                        continue
+                    if not self.exp_logger.is_completed(source.id, g.name):
+                        active_pairs.append((source, g))
 
-                    src_lang = g.chain[step]
-                    tgt_lang = g.chain[step + 1]
+            # --- 主翻译（批量：多组 × 多段）---
+            translate_tasks: list[TranslationTask] = []
+            task_mapping: list[tuple[SourceText, ExperimentGroup]] = []
 
+            for source, g in active_pairs:
+                src_lang = g.chain[step]
+                tgt_lang = g.chain[step + 1]
+                step_desc = f"Step {step+1}: {src_lang}→{tgt_lang}"
+
+                cached_step = self.exp_logger.get_cached_step(source.id, g.name, step_desc)
+                if cached_step:
+                    # 恢复进度
+                    response_text = cached_step["response"]
+                    usage = cached_step["usage"]
+
+                    current_texts[source.id][g.name] = response_text
+                    text_key = tgt_lang if not g.is_paraphrase else f"{tgt_lang}{step + 1}"
+                    chain_results[source.id][g.name]["texts"][text_key] = response_text
+                    chain_results[source.id][g.name]["steps"].append({
+                        "step": step + 1,
+                        "direction": f"{src_lang}→{tgt_lang}",
+                        "type": "paraphrase" if g.is_paraphrase else "translate",
+                        "tokens": usage,
+                        "recovered": True,
+                    })
+                    logger.debug(f"Recovered {step_desc} for {source.id} ({g.name})")
+                else:
                     task = TranslationTask(
                         task_id=len(translate_tasks) + 1,
                         source_lang=src_lang,
@@ -226,65 +246,77 @@ class ExperimentRunner:
                     translate_tasks.append(task)
                     task_mapping.append((source, g))
 
-            if not translate_tasks:
-                continue
+            if translate_tasks:
+                translate_results = self.translator.translate_batch(translate_tasks)
+                for (source, g), task, result in zip(task_mapping, translate_tasks, translate_results):
+                    tgt_lang = g.chain[step + 1]
+                    current_texts[source.id][g.name] = result.output_text
 
-            translate_results = self.translator.translate_batch(translate_tasks)
+                    text_key = tgt_lang if not g.is_paraphrase else f"{tgt_lang}{step + 1}"
+                    chain_results[source.id][g.name]["texts"][text_key] = result.output_text
+                    chain_results[source.id][g.name]["steps"].append({
+                        "step": step + 1,
+                        "direction": f"{task.source_lang}→{task.target_lang}",
+                        "type": "paraphrase" if g.is_paraphrase else "translate",
+                        "tokens": result.api_response.usage if result.api_response else {},
+                    })
 
-            # 更新状态和结果
-            for (source, g), task, result in zip(task_mapping, translate_tasks, translate_results):
-                tgt_lang = g.chain[step + 1]
-                current_texts[source.id][g.name] = result.output_text
-
-                text_key = tgt_lang if not g.is_paraphrase else f"{tgt_lang}{step + 1}"
-                chain_results[source.id][g.name]["texts"][text_key] = result.output_text
-                chain_results[source.id][g.name]["steps"].append({
-                    "step": step + 1,
-                    "direction": f"{task.source_lang}→{task.target_lang}",
-                    "type": "paraphrase" if g.is_paraphrase else "translate",
-                    "tokens": result.api_response.usage if result.api_response else {},
-                })
-
-                if result.api_response:
-                    self.exp_logger.log_api_call(
-                        group_name=g.name,
-                        source_id=source.id,
-                        step_desc=f"Step {step+1}: {task.source_lang}→{task.target_lang}",
-                        prompt=f"[batch task {task.task_id}]",
-                        response=result.output_text[:500],
-                        usage=result.api_response.usage,
-                        latency_ms=result.api_response.latency_ms,
-                    )
+                    if result.api_response:
+                        self.exp_logger.log_api_call(
+                            group_name=g.name,
+                            source_id=source.id,
+                            step_desc=f"Step {step+1}: {task.source_lang}→{task.target_lang}",
+                            prompt=f"[batch task {task.task_id}]",
+                            response=result.output_text,
+                            usage=result.api_response.usage,
+                            latency_ms=result.api_response.latency_ms,
+                        )
 
             # --- 回译（批量：多组 × 多段）---
             bt_tasks: list[TranslationTask] = []
             bt_mapping: list[tuple[SourceText, ExperimentGroup]] = []
 
-            for (source, g), result in zip(task_mapping, translate_results):
-                if step >= g.num_steps:
-                    continue
+            for source, g in active_pairs:
                 if not g.needs_backtranslation(step):
                     continue
 
                 tgt_lang = g.chain[step + 1]
-                bt_task = TranslationTask(
-                    task_id=len(bt_tasks) + 1,
-                    source_lang=tgt_lang,
-                    target_lang=g.origin_lang,
-                    source_lang_full=self.languages.get(tgt_lang, tgt_lang),
-                    target_lang_full=self.languages.get(g.origin_lang, g.origin_lang),
-                    text=result.output_text,
-                    is_backtranslation=True,
-                    is_paraphrase=False,
-                    group_name=g.name,
-                    source_id=source.id,
-                )
-                bt_tasks.append(bt_task)
-                bt_mapping.append((source, g))
+                step_desc = f"Step {step+1} BT: {tgt_lang}→{g.origin_lang}"
+
+                cached_step = self.exp_logger.get_cached_step(source.id, g.name, step_desc)
+                if cached_step:
+                    # 恢复进度
+                    response_text = cached_step["response"]
+                    usage = cached_step["usage"]
+
+                    en_key = f"{g.origin_lang}{step + 1}"
+                    chain_results[source.id][g.name]["texts"][en_key] = response_text
+                    chain_results[source.id][g.name]["steps"].append({
+                        "step": step + 1,
+                        "direction": f"{tgt_lang}→{g.origin_lang}",
+                        "type": "backtranslation",
+                        "tokens": usage,
+                        "recovered": True,
+                    })
+                    logger.debug(f"Recovered {step_desc} for {source.id} ({g.name})")
+                else:
+                    bt_task = TranslationTask(
+                        task_id=len(bt_tasks) + 1,
+                        source_lang=tgt_lang,
+                        target_lang=g.origin_lang,
+                        source_lang_full=self.languages.get(tgt_lang, tgt_lang),
+                        target_lang_full=self.languages.get(g.origin_lang, g.origin_lang),
+                        text=current_texts[source.id][g.name],
+                        is_backtranslation=True,
+                        is_paraphrase=False,
+                        group_name=g.name,
+                        source_id=source.id,
+                    )
+                    bt_tasks.append(bt_task)
+                    bt_mapping.append((source, g))
 
             if bt_tasks:
                 bt_results = self.translator.translate_batch(bt_tasks)
-
                 for (source, g), bt_task, bt_result in zip(bt_mapping, bt_tasks, bt_results):
                     en_key = f"{g.origin_lang}{step + 1}"
                     chain_results[source.id][g.name]["texts"][en_key] = bt_result.output_text
@@ -301,7 +333,7 @@ class ExperimentRunner:
                             source_id=source.id,
                             step_desc=f"Step {step+1} BT: {bt_task.source_lang}→{bt_task.target_lang}",
                             prompt=f"[batch backtranslation task {bt_task.task_id}]",
-                            response=bt_result.output_text[:500],
+                            response=bt_result.output_text,
                             usage=bt_result.api_response.usage,
                             latency_ms=bt_result.api_response.latency_ms,
                         )

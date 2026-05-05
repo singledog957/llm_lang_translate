@@ -164,6 +164,40 @@ class ExperimentLogger:
             groups.append(group_name)
         self.save_progress(progress)
 
+    def load_step_cache(self) -> dict[str, dict[str, dict[str, dict]]]:
+        """
+        加载单步级别缓存 (从 api_calls.jsonl)，用于细粒度断点续做。
+        返回: { source_id: { group: { step_desc: { "response": "...", "usage": {...} } } } }
+        """
+        if hasattr(self, "_step_cache") and self._step_cache is not None:
+            return self._step_cache
+            
+        cache = {}
+        if os.path.exists(self._api_log_path):
+            with open(self._api_log_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    try:
+                        data = json.loads(line)
+                        src_id = data.get("source_id")
+                        grp = data.get("group")
+                        st = data.get("step")
+                        resp = data.get("response")
+                        usage = data.get("usage", {})
+                        if src_id and grp and st and resp is not None:
+                            cache.setdefault(src_id, {}).setdefault(grp, {})[st] = {
+                                "response": resp,
+                                "usage": usage,
+                            }
+                    except json.JSONDecodeError:
+                        pass
+        self._step_cache = cache
+        return cache
+
+    def get_cached_step(self, source_id: str, group_name: str, step_desc: str) -> dict | None:
+        """检查单步缓存中是否有特定记录。"""
+        cache = self.load_step_cache()
+        return cache.get(source_id, {}).get(group_name, {}).get(step_desc)
+
     # ------------------------------------------------------------------
     # 实验摘要
     # ------------------------------------------------------------------

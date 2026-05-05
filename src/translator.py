@@ -221,7 +221,54 @@ class Translator:
                     logger.warning("JSON parsed but dict missing keys: found %d/%d", len(extracted), expected_count)
 
         except json.JSONDecodeError as e:
-            logger.warning("JSONDecodeError: %s. JSON payload is incomplete or malformed. Skipping heuristic extraction to trigger retry.", str(e))
+            logger.warning("JSONDecodeError: %s. Attempting enhanced heuristic extraction...", str(e))
+            
+            # 增强版启发式提取：应对内容中包含未转义双引号的情况
+            # 通过定位键名 "1": " 来截取中间的文本，而不是单纯依赖正则匹配双引号
+            pattern = r'"(\d+)"\s*:\s*"'
+            matches = list(re.finditer(pattern, clean_content))
+            
+            if matches:
+                extracted_dict = {}
+                for i in range(len(matches)):
+                    key = matches[i].group(1)
+                    start_idx = matches[i].end()
+                    
+                    if i + 1 < len(matches):
+                        end_idx = matches[i+1].start()
+                        chunk = clean_content[start_idx:end_idx]
+                        # 此时 chunk 应该以 ",\n 结尾（也可能没有逗号）
+                        chunk = chunk.rstrip()
+                        if chunk.endswith(','):
+                            chunk = chunk[:-1].rstrip()
+                        if chunk.endswith('"'):
+                            chunk = chunk[:-1]
+                        extracted_dict[key] = chunk
+                    else:
+                        chunk = clean_content[start_idx:]
+                        chunk = chunk.rstrip()
+                        # 移除末尾可能的 }
+                        while chunk.endswith('}'):
+                            chunk = chunk[:-1].rstrip()
+                        if chunk.endswith('"'):
+                            chunk = chunk[:-1]
+                        extracted_dict[key] = chunk
+
+                # 去除可能的转义符（如果是模型转义了的引号，我们恢复它；未转义的保持原样）
+                for k in extracted_dict:
+                    extracted_dict[k] = extracted_dict[k].replace('\\"', '"').replace('\\\\', '\\').strip()
+
+                extracted = []
+                for i in range(1, expected_count + 1):
+                    key = str(i)
+                    if key in extracted_dict:
+                        extracted.append(extracted_dict[key])
+                        
+                if len(extracted) == expected_count:
+                    logger.info("Enhanced heuristic extraction succeeded: found %d results.", len(extracted))
+                    return extracted
+                elif len(extracted) > 0:
+                    logger.warning("Enhanced heuristic extraction found partial results: %d/%d", len(extracted), expected_count)
 
         # 2. 尝试正则表达式解析 (回退策略)
         logger.warning("JSON parse failed or length mismatch, trying regex fallback...")
