@@ -57,7 +57,7 @@ def fetch_text_from_results(base_dir, model, group, source_id):
 
 def main():
     print("Starting evaluation analysis...")
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     eval_dir = os.path.join(base_dir, "3_exps", "evaluate")
     out_dir = os.path.join(eval_dir, "analysis_results")
     os.makedirs(out_dir, exist_ok=True)
@@ -67,30 +67,50 @@ def main():
         print("No evaluation data found in", eval_dir)
         return
         
-    # 定义五个维度的列名 (Metrics defined in English)
+    # 5 dimension score columns (new schema from evaluate_pure.py)
     metrics = [
-        "Irony & Implication Preservation",
-        "Speech Act Maintenance",
-        "Politeness & Register Shifts",
-        "Uncertainty Preservation",
-        "Attitudinal Intensity Changes"
+        "irony",
+        "speech_act",
+        "register",
+        "uncertainty",
+        "attitude",
     ]
-    
-    # 将原始数据中的中文键名映射为英文 (Map Chinese keys to English)
-    column_mapping = {
-        "讽刺、暗示、间接意义是否保留": "Irony & Implication Preservation",
-        "请求、建议、拒绝等功能是否保持": "Speech Act Maintenance",
-        "礼貌程度、语域、身份关系是否漂移": "Politeness & Register Shifts",
-        "不确定性表达是否保留": "Uncertainty Preservation",
-        "态度强度是否改变": "Attitudinal Intensity Changes"
+
+    # Human-readable display names for charts
+    METRIC_DISPLAY = {
+        "irony":       "Irony & Implication",
+        "speech_act":  "Speech Act Maintenance",
+        "register":    "Politeness & Register Drift",
+        "uncertainty": "Uncertainty Preservation",
+        "attitude":    "Attitudinal Intensity",
     }
-    df = df.rename(columns=column_mapping)
-    
-    # 清洗数据，确保分数为数值格式
+
+    # Backwards compatibility: migrate old Chinese-key schema to new English keys
+    legacy_mapping = {
+        "\u8bbd\u523a\u3001\u6697\u793a\u3001\u95f4\u63a5\u610f\u4e49\u662f\u5426\u4fdd\u7559": "irony",
+        "\u8bf7\u6c42\u3001\u5efa\u8bae\u3001\u62d2\u7edd\u7b49\u529f\u80fd\u662f\u5426\u4fdd\u6301": "speech_act",
+        "\u793c\u8c8c\u7a0b\u5ea6\u3001\u8bed\u57df\u3001\u8eab\u4efd\u5173\u7cfb\u662f\u5426\u6f02\u79fb": "register",
+        "\u4e0d\u786e\u5b9a\u6027\u8868\u8fbe\u662f\u5426\u4fdd\u7559": "uncertainty",
+        "\u6001\u5ea6\u5f3a\u5ea6\u662f\u5426\u6539\u53d8": "attitude",
+    }
+    for old_col, new_col in legacy_mapping.items():
+        if old_col in df.columns and new_col not in df.columns:
+            df[new_col] = df[old_col]
+
+    # Ensure score columns exist and are numeric
     for m in metrics:
-        df[m] = pd.to_numeric(df[m], errors='coerce')
-        
-    # 计算每一条文本在5个维度上的平均分
+        if m in df.columns:
+            df[m] = pd.to_numeric(df[m], errors='coerce')
+        else:
+            df[m] = float('nan')
+
+    # Drop rows where all dimension scores are missing
+    df = df.dropna(subset=metrics, how='all')
+    if df.empty:
+        print("No scoreable data found — all dimension columns are NaN.")
+        return
+
+    # Compute per-item average across 5 dimensions
     df['average_score'] = df[metrics].mean(axis=1)
     
     # ==========================
@@ -99,27 +119,29 @@ def main():
     print("Generating Model & Group analysis...")
     avg_by_model_group = df.groupby(['model', 'group'])['average_score'].mean().reset_index()
     avg_by_model_group.to_csv(os.path.join(out_dir, "average_scores_by_model_group.csv"), index=False)
-    
+
     plt.figure(figsize=(12, 6))
     sns.barplot(data=avg_by_model_group, x='model', y='average_score', hue='group')
     plt.title('Average Translation Score by Model and Group')
     plt.xticks(rotation=45, ha='right')
-    plt.ylabel('Average Score')
+    plt.ylabel('Average Score (0-100)')
     plt.legend(title='Group', bbox_to_anchor=(1.05, 1), loc='upper left')
     plt.tight_layout()
     plt.savefig(os.path.join(out_dir, "average_scores_bar.png"))
     plt.close()
 
     # ==========================
-    # 2. 按照维度 (Metrics) 聚合的热力图
+    # 2. Per-dimension heatmap
     # ==========================
     print("Generating Metrics Heatmap...")
     avg_by_model_metric = df.groupby('model')[metrics].mean().reset_index()
+    # Rename columns to display names for the chart
+    display_df = avg_by_model_metric.rename(columns=METRIC_DISPLAY).set_index('model')
     avg_by_model_metric.to_csv(os.path.join(out_dir, "average_scores_by_model_metric.csv"), index=False)
-    
+
     plt.figure(figsize=(10, 8))
-    sns.heatmap(avg_by_model_metric.set_index('model').T, annot=True, cmap="YlGnBu", fmt=".1f")
-    plt.title('Average Metrics Score by Model')
+    sns.heatmap(display_df.T, annot=True, cmap="YlGnBu", fmt=".1f", vmin=0, vmax=100)
+    plt.title('Average Dimension Score by Model')
     plt.tight_layout()
     plt.savefig(os.path.join(out_dir, "metrics_heatmap.png"))
     plt.close()
