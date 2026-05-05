@@ -114,6 +114,7 @@ def main():
     max_tokens = int(os.environ.get("MAX_TOKENS", "4096"))
     timeout = float(os.environ.get("TIMEOUT", "60.0"))
     paragraphs_per_request = int(os.environ.get("PARAGRAPHS_PER_REQUEST", "1"))
+    use_json_mode = os.environ.get("USE_JSON_MODE", "false").lower() == "true"
 
     # 2. 加载 config.yaml
     with open(args.config, "r", encoding="utf-8") as f:
@@ -256,6 +257,7 @@ def main():
             languages=languages,
             output_dir=output_path,
             paragraphs_per_request=paragraphs_per_request,
+            use_json_mode=use_json_mode,
         )
 
         # 执行

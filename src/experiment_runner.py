@@ -74,8 +74,9 @@ class ExperimentRunner:
         languages: dict[str, str],
         output_dir: str,
         paragraphs_per_request: int = 1,
+        use_json_mode: bool = True,
     ):
-        self.translator = Translator(api_client, prompt_manager)
+        self.translator = Translator(api_client, prompt_manager, use_json_mode=use_json_mode)
         self.exp_logger = exp_logger
         self.languages = languages
         self.output_dir = output_dir

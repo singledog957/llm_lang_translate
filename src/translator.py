@@ -55,9 +55,10 @@ class Translator:
     所有翻译使用独立 session，不维护上下文。
     """
 
-    def __init__(self, api_client: APIClient, prompt_manager: PromptManager):
+    def __init__(self, api_client: APIClient, prompt_manager: PromptManager, use_json_mode: bool = True):
         self.api_client = api_client
         self.prompt_manager = prompt_manager
+        self.use_json_mode = use_json_mode
 
     # ------------------------------------------------------------------
     # 单条翻译
@@ -133,11 +134,16 @@ class Translator:
         batch_prompt = self.prompt_manager.render_batch(batch_tasks)
         messages = [ChatMessage(role="user", content=batch_prompt)]
         
-        # 启用 JSON Mode (Structured Output)
-        response = self.api_client.chat_completion(
-            messages, 
-            response_format={"type": "json_object"}
-        )
+        # 启用 JSON Mode (Structured Output) 
+        if self.use_json_mode:
+            response = self.api_client.chat_completion(
+                messages,
+                response_format={"type": "json_object"}
+            )
+        else:
+            response = self.api_client.chat_completion(
+                messages
+            )
 
         # 解析批量响应
         try:

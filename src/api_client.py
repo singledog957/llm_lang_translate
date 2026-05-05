@@ -361,7 +361,30 @@ class APIClient:
                         )
 
                     data = http_resp.json()
-                    choice = data["choices"][0]
+                    
+                    if not data or not isinstance(data, dict):
+                        raise APIError(
+                            message=f"Invalid JSON response (not a dict): {http_resp.text}",
+                            request=None,
+                            body=data
+                        )
+                        
+                    choices = data.get("choices")
+                    if not choices or not isinstance(choices, list) or len(choices) == 0:
+                        # Some gateways return 200 OK but with an error object inside
+                        if "error" in data:
+                            raise APIError(
+                                message=f"API returned error in 200 OK response: {data['error']}",
+                                request=None,
+                                body=data
+                            )
+                        raise APIError(
+                            message=f"No valid choices in response: {data}",
+                            request=None,
+                            body=data
+                        )
+
+                    choice = choices[0]
                     msg_obj_dict = choice.get("message", {})
                     raw_content = msg_obj_dict.get("content")
                     finish_reason = choice.get("finish_reason", "")
