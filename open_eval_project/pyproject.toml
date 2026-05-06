@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "open-eval-project"
+version = "0.1.0"
+description = "Syntax and semantic retention evaluation for multi-hop translation/paraphrase CSV files."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "pandas>=2.0.0",
+  "numpy>=1.24.0",
+  "sacrebleu>=2.4.0",
+  "spacy>=3.7.0",
+  "tqdm>=4.66.0",
+  "python-dotenv>=1.0.0",
+  "matplotlib>=3.8.0",
+  "seaborn>=0.13.0",
+]
+
+[project.scripts]
+open-eval = "open_eval_project.evaluator:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["open_eval_project*"]
