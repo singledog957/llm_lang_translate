@@ -24,8 +24,8 @@ CONCURRENT_REQUESTS = 3     # M concurrent requests
 EVAL_MODEL = "gpt-5.5"      # Model used for evaluation
 # =================================================
 
-BASE_URL = os.environ.get("BASE_URL", "https://www.packyapi.com/v1")
-API_KEY  = os.environ.get("API_KEY", "sk-6s7eF1YA8B35EiJkaX188UIr3LiJtk8LXK32MVIDy3AXfB1E")
+BASE_URL = os.environ.get("BASE_URL", "")
+API_KEY  = os.environ.get("API_KEY", "")
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # =================== Prompt Loading ===================

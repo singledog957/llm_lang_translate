@@ -1,0 +1,14 @@
+# Translation configuration
+translation:
+  # 源语言列表，如果为空或者为 'all'，则将翻译 datasets 目录下的所有语言
+  source_languages: 
+    - en
+    - zh
+  
+  # 目标语言列表，必填
+  target_languages:
+    - es
+    - ja
+  
+  # 每个源语言最多翻译的条目数，0或不填表示不限制
+  max_items_per_lang: 10

@@ -1,0 +1,6 @@
+Paraphrase the following {source_lang} text in {target_lang}.
+Rewrite it using different words and sentence structures while preserving the original meaning, tone, and style.
+Do not add explanations, notes, or commentary. Output only the paraphrased text.
+
+Text:
+{text}

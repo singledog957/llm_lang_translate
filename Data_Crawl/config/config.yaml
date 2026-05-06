@@ -1,0 +1,61 @@
+# ============================================================
+#  多语言文本采集系统 - 主配置文件
+# ============================================================
+
+collection:
+  # 时间范围（ISO 8601，留空表示不限）
+  time_range:
+    start: "2026-04-15"
+    end: "2026-04-29"
+
+  # 目标语言（ISO 639-1）
+  languages:
+    - zh
+    - en
+    - ja
+    - fr
+    - de
+    - es
+    - ru
+    - pt
+    - it
+    - ko
+
+  # 目标领域
+  domains:
+    - technology
+    - politics
+    - finance
+    - science
+    - culture
+    - health
+
+  # 数量限制
+  limits:
+    total: 1000          # 总条数上限（0 = 不限）
+    per_source: 200      # 每个来源上限
+    per_language: 150    # 每种语言上限
+    per_domain: 200      # 每个领域上限
+
+  # 调度设置
+  schedule:
+    mode: "once"         # once | interval
+    interval_hours: 12
+
+processing:
+  min_word_count: 80      # 正文最少词数（过短丢弃）
+  max_word_count: 50000   # 正文最多词数
+  dedup_enabled: true
+  dedup_window: 10000     # 去重滑动窗口（条）
+  lang_confidence: 0.80   # 语言检测置信度阈值
+
+output:
+  format: "jsonl"          # jsonl | parquet
+  path: "./datasets"
+  split_by_language: true  # 按语言分文件
+  split_by_domain: false
+  compress: false          # gzip 压缩
+
+logging:
+  level: "INFO"
+  file: "./logs/collector.log"

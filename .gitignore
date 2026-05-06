@@ -5,21 +5,32 @@ __pycache__/
 .venv/
 venv/
 
-# Data & Models
-1_data/
-*.pth
-*.onnx
-*.h5
-
-*.log
-init.sh
+# Credentials — NEVER commit
+.env
+*.env
+!*.env.example
 
 # OS
 .DS_Store
 
-Data_Crawl
-.env
+# Logs
+*.log
 
+# Internal docs & drafts (not for publication)
+0_docs/
+
+# Experiment outputs (large, not for publication)
+3_exps/
+
+# Helper scripts
 scripts/
+init.sh
 
-3_exps
+# Data_Crawl internal
+Data_Crawl/datasets/
+Data_Crawl/logs/
+Data_Crawl/__pycache__/
+Data_Crawl/src/__pycache__/
+
+# open_eval_project outputs
+open_eval_project/outputs/

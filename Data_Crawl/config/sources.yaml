@@ -1,0 +1,349 @@
+# ============================================================
+#  数据源配置文件 - 用户可自由添加/修改/禁用
+# ============================================================
+#
+#  每个来源支持的字段：
+#    name        : 来源显示名称（必填）
+#    type        : rss | api_guardian | api_nyt | api_arxiv | wiki | custom_rss
+#    enabled     : true/false，快速开关
+#    language    : 该来源对应的语言（ISO 639-1）
+#    domains     : 该来源涵盖的领域列表
+#    url / feeds : RSS 地址或 API 端点
+#    api_key     : 需要鉴权的来源填写（可用环境变量 ${VAR_NAME}）
+#    extra       : 来源专属附加参数
+#
+# ============================================================
+
+sources:
+
+  # ── 英文新闻 ──────────────────────────────────────────────
+
+  - name: "The Guardian"
+    type: "api_guardian"
+    enabled: true
+    language: "en"
+    domains: [politics, technology, science, culture, health, finance]
+    api_key: "739a9de4-de98-4b8d-9cf6-4a0d2fdc07f5"   # 免费注册: https://open-platform.theguardian.com/
+    extra:
+      page_size: 50
+
+  - name: "Reuters RSS"
+    type: "rss"
+    enabled: true
+    language: "en"
+    domains: [politics, finance, technology]
+    feeds:
+      - url: "https://feeds.reuters.com/reuters/topNews"
+        domain_hint: politics
+      - url: "https://feeds.reuters.com/reuters/businessNews"
+        domain_hint: finance
+      - url: "https://feeds.reuters.com/reuters/technologyNews"
+        domain_hint: technology
+
+  - name: "BBC News (EN)"
+    type: "rss"
+    enabled: true
+    language: "en"
+    domains: [politics, technology, science, culture, health]
+    feeds:
+      - url: "https://feeds.bbci.co.uk/news/rss.xml"
+        domain_hint: politics
+      - url: "https://feeds.bbci.co.uk/news/technology/rss.xml"
+        domain_hint: technology
+      - url: "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml"
+        domain_hint: science
+      - url: "https://feeds.bbci.co.uk/news/health/rss.xml"
+        domain_hint: health
+
+  - name: "arXiv (CS + Physics)"
+    type: "api_arxiv"
+    enabled: true
+    language: "en"
+    domains: [science, technology]
+    extra:
+      categories: ["cs.AI", "cs.CL", "physics.gen-ph"]
+      max_results: 50
+
+  # ── 中文新闻 ──────────────────────────────────────────────
+
+  - name: "BBC 中文"
+    type: "rss"
+    enabled: true
+    language: "zh"
+    domains: [politics, technology, culture]
+    feeds:
+      - url: "https://feeds.bbci.co.uk/zhongwen/simp/rss.xml"
+        domain_hint: politics
+
+  - name: "德国之声中文"
+    type: "rss"
+    enabled: true
+    language: "zh"
+    domains: [politics, culture, science]
+    feeds:
+      - url: "https://rss.dw.com/rdf/rss-chi-all"
+        domain_hint: politics
+
+  # ── 日文新闻 ──────────────────────────────────────────────
+
+  - name: "NHK World (JA)"
+    type: "rss"
+    enabled: true
+    language: "ja"
+    domains: [politics, technology, culture]
+    feeds:
+      - url: "https://www.nhk.or.jp/rss/news/cat0.xml"
+        domain_hint: politics
+      - url: "https://www.nhk.or.jp/rss/news/cat3.xml"
+        domain_hint: science
+      - url: "https://www.nhk.or.jp/rss/news/cat4.xml"
+        domain_hint: culture
+
+  - name: "Deutsche Welle (JA)"
+    type: "rss"
+    enabled: true
+    language: "ja"
+    domains: [politics]
+    feeds:
+      - url: "https://rss.dw.com/rdf/rss-jap-all"
+        domain_hint: politics
+
+  # ── 法文新闻 ──────────────────────────────────────────────
+
+  - name: "Le Monde RSS"
+    type: "rss"
+    enabled: true
+    language: "fr"
+    domains: [politics, culture, science]
+    feeds:
+      - url: "https://www.lemonde.fr/rss/une.xml"
+        domain_hint: politics
+      - url: "https://www.lemonde.fr/sciences/rss_full.xml"
+        domain_hint: science
+      - url: "https://www.lemonde.fr/culture/rss_full.xml"
+        domain_hint: culture
+
+  - name: "Deutsche Welle (FR)"
+    type: "rss"
+    enabled: true
+    language: "fr"
+    domains: [politics]
+    feeds:
+      - url: "https://rss.dw.com/rdf/rss-fra-all"
+        domain_hint: politics
+
+  # ── 德文新闻 ──────────────────────────────────────────────
+
+  - name: "Deutsche Welle (DE)"
+    type: "rss"
+    enabled: true
+    language: "de"
+    domains: [politics, science, technology]
+    feeds:
+      - url: "https://rss.dw.com/rdf/rss-ger-all"
+        domain_hint: politics
+
+  - name: "Spiegel Online RSS"
+    type: "rss"
+    enabled: true
+    language: "de"
+    domains: [politics, culture, science, health]
+    feeds:
+      - url: "https://www.spiegel.de/schlagzeilen/index.rss"
+        domain_hint: politics
+
+  # ── Wikipedia（多语言，可按需启用）─────────────────────────
+
+  - name: "Wikipedia Random (EN)"
+    type: "wiki"
+    enabled: false
+    language: "en"
+    domains: [science, culture, technology]
+    extra:
+      wiki_lang: "en"
+      count: 30
+
+  - name: "Wikipedia Random (ZH)"
+    type: "wiki"
+    enabled: false
+    language: "zh"
+    domains: [science, culture]
+    extra:
+      wiki_lang: "zh"
+      count: 30
+
+  # ── 自定义 RSS（用户扩展示例）────────────────────────────
+
+  # - name: "我的自定义来源"
+  #   type: "rss"
+  #   enabled: false
+  #   language: "en"
+  #   domains: [technology]
+  #   feeds:
+  #     - url: "https://example.com/feed.xml"
+  #       domain_hint: technology
+
+  # ── Spanish (ES) ──────────────────────────────────────────────
+  - name: "El Pais (ES)"
+    type: "rss"
+    enabled: true
+    language: "es"
+    domains: [politics, culture, science]
+    feeds:
+      - url: "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada"
+        domain_hint: politics
+
+  - name: "BBC Mundo (ES)"
+    type: "rss"
+    enabled: true
+    language: "es"
+    domains: [politics, technology, culture]
+    feeds:
+      - url: "https://feeds.bbci.co.uk/mundo/rss.xml"
+        domain_hint: politics
+
+  # ── Russian (RU) ──────────────────────────────────────────────
+  - name: "BBC Russian (RU)"
+    type: "rss"
+    enabled: true
+    language: "ru"
+    domains: [politics, culture]
+    feeds:
+      - url: "https://feeds.bbci.co.uk/russian/rss.xml"
+        domain_hint: politics
+
+  # ── Portuguese (PT) ───────────────────────────────────────────
+  - name: "BBC Brasil (PT)"
+    type: "rss"
+    enabled: true
+    language: "pt"
+    domains: [politics, culture]
+    feeds:
+      - url: "https://feeds.bbci.co.uk/portuguese/rss.xml"
+        domain_hint: politics
+
+  # ── Italian (IT) ──────────────────────────────────────────────
+  - name: "ANSA (IT)"
+    type: "rss"
+    enabled: true
+    language: "it"
+    domains: [politics, science]
+    feeds:
+      - url: "https://www.ansa.it/sito/ansait_rss.xml"
+        domain_hint: politics
+
+  - name: "Corriere (IT)"
+    type: "rss"
+    enabled: true
+    language: "it"
+    domains: [politics, finance]
+    feeds:
+      - url: "http://xml2.corriereobjects.it/rss/homepage.xml"
+        domain_hint: politics
+
+  # ── Korean (KO) ───────────────────────────────────────────────
+  - name: "Dong-A Ilbo (KO)"
+    type: "rss"
+    enabled: true
+    language: "ko"
+    domains: [politics, finance, culture]
+    feeds:
+      - url: "https://rss.donga.com/total.xml"
+        domain_hint: politics
+
+  # ── Korean (KO) Additions ─────────────────────────────────────
+  - name: "Dong-A Ilbo Politics/Economy (KO)"
+    type: "rss"
+    enabled: true
+    language: "ko"
+    domains: [politics, finance]
+    feeds:
+      - url: "https://rss.donga.com/politics.xml"
+        domain_hint: politics
+      - url: "https://rss.donga.com/economy.xml"
+        domain_hint: finance
+
+  - name: "Hankyoreh (KO)"
+    type: "rss"
+    enabled: true
+    language: "ko"
+    domains: [politics, culture]
+    feeds:
+      - url: "http://www.hani.co.kr/rss/"
+        domain_hint: politics
+
+  # ── Russian (RU) Additions ────────────────────────────────────
+  - name: "Lenta (RU)"
+    type: "rss"
+    enabled: true
+    language: "ru"
+    domains: [politics, technology, culture]
+    feeds:
+      - url: "https://lenta.ru/rss/news"
+        domain_hint: politics
+
+  - name: "Vedomosti (RU)"
+    type: "rss"
+    enabled: true
+    language: "ru"
+    domains: [finance, politics]
+    feeds:
+      - url: "https://www.vedomosti.ru/rss/news"
+        domain_hint: finance
+
+  # ── German (DE) Additions ─────────────────────────────────────
+  - name: "Tagesschau (DE)"
+    type: "rss"
+    enabled: true
+    language: "de"
+    domains: [politics, culture]
+    feeds:
+      - url: "https://www.tagesschau.de/xml/rss2/"
+        domain_hint: politics
+
+  - name: "Zeit Online (DE)"
+    type: "rss"
+    enabled: true
+    language: "de"
+    domains: [politics, science]
+    feeds:
+      - url: "https://newsfeed.zeit.de/index"
+        domain_hint: politics
+
+  # ── Italian (IT) Additions ────────────────────────────────────
+  - name: "La Repubblica (IT)"
+    type: "rss"
+    enabled: true
+    language: "it"
+    domains: [politics, culture]
+    feeds:
+      - url: "https://www.repubblica.it/rss/homepage/rss2.0.xml"
+        domain_hint: politics
+
+  - name: "Il Sole 24 Ore (IT)"
+    type: "rss"
+    enabled: true
+    language: "it"
+    domains: [finance, politics]
+    feeds:
+      - url: "https://www.ilsole24ore.com/rss/italia.xml"
+        domain_hint: finance
+
+  # ── Portuguese (PT) Additions ─────────────────────────────────
+  - name: "G1 Globo (PT)"
+    type: "rss"
+    enabled: true
+    language: "pt"
+    domains: [politics, culture]
+    feeds:
+      - url: "https://g1.globo.com/rss/g1/"
+        domain_hint: politics
+
+  - name: "Publico (PT)"
+    type: "rss"
+    enabled: true
+    language: "pt"
+    domains: [politics, technology]
+    feeds:
+      - url: "https://feeds.feedburner.com/PublicoRSS"
+        domain_hint: politics
