@@ -85,17 +85,6 @@ pip install -r requirements.txt
 - Python 3.10+
 - An OpenAI-compatible API endpoint (for `translation_system`)
 
-## Citation
-
-If you use this codebase in your research, please cite:
-
-```bibtex
-@misc{llm_crosslingual_2026,
-  title={From Babel to Semantic Collapse: Selective Semantic-Pragmatic Degradation in LLM Cross-Lingual Transmission},
-  year={2026}
-}
-```
-
 ## License
 
 This project is released for academic research purposes.
